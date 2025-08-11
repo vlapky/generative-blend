@@ -2,6 +2,7 @@ import { useState, useRef, useEffect } from 'react'
 import './App.css'
 
 type BrushShape = 'circle' | 'square' | 'rounded-square' | 'svg'
+const maxHistorySize = 50;
 
 function App() {
   const canvasRef = useRef<HTMLCanvasElement>(null)
@@ -36,6 +37,10 @@ function App() {
   const [isRecording, setIsRecording] = useState(false)
   const [mediaRecorder, setMediaRecorder] = useState<MediaRecorder | null>(null)
   const [_, setRecordedChunks] = useState<Blob[]>([])
+  
+  // Состояния для undo/redo
+  const [canvasHistory, setCanvasHistory] = useState<ImageData[]>([])
+  const [historyIndex, setHistoryIndex] = useState(-1)
 
   // Функция для обновления размера canvas с учетом высокого разрешения
   const updateCanvasSize = () => {
@@ -53,11 +58,18 @@ function App() {
     canvas.height = height * devicePixelRatio
 
     // Устанавливаем CSS размер
-    canvas.style.width = width + 'px'
-    canvas.style.height = height + 'px'
+    canvas.style.width = `${width}px`
+    canvas.style.height = `${height}px`
 
     // Масштабируем контекст для высокого разрешения
     ctx.scale(devicePixelRatio, devicePixelRatio)
+
+    // Сохраняем начальное состояние пустого холста
+    if (canvasHistory.length === 0) {
+      const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height)
+      setCanvasHistory([imageData])
+      setHistoryIndex(0)
+    }
 
     // Очищаем canvas
     ctx.clearRect(0, 0, width, height)
@@ -279,6 +291,9 @@ function App() {
 
   // Обработчики событий мыши
   const handleMouseDown = (e: React.MouseEvent<HTMLCanvasElement>) => {
+    // Сохраняем состояние перед началом рисования
+    // saveCanvasState()
+    
     setIsDrawing(true)
     const pos = getMousePos(e)
     const canvas = canvasRef.current
@@ -307,6 +322,7 @@ function App() {
   }
 
   const handleMouseUp = () => {
+    saveCanvasState();
     setIsDrawing(false)
   }
 
@@ -321,6 +337,8 @@ function App() {
     if (ctx) {
       ctx.clearRect(0, 0, width, height)
     }
+
+    saveCanvasState()
   }
 
   // Функции для записи видео
@@ -385,6 +403,61 @@ function App() {
     }
   }
 
+  // Функции для undo/redo
+  const saveCanvasState = () => {
+    const canvas = canvasRef.current
+    const ctx = canvas?.getContext('2d')
+    if (!ctx || !canvas) return
+
+    const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height)
+    
+    // Удаляем все состояния после текущего индекса (если мы не в конце истории)
+    const newHistory = canvasHistory.slice(0, historyIndex + 1)
+    
+    // Добавляем новое состояние
+    newHistory.push(imageData)
+    
+    // Ограничиваем размер истории
+    if (newHistory.length > maxHistorySize) {
+      newHistory.shift()
+    } else {
+      setHistoryIndex(historyIndex + 1)
+    }
+    
+    setCanvasHistory(newHistory)
+  }
+
+  const undo = () => {
+    if (historyIndex > 0) {
+      const canvas = canvasRef.current
+      const ctx = canvas?.getContext('2d')
+      if (!ctx || !canvas) return
+
+      const newIndex = historyIndex - 1
+      const imageData = canvasHistory[newIndex]
+      
+      ctx.putImageData(imageData, 0, 0)
+      setHistoryIndex(newIndex)
+    }
+  }
+
+  const redo = () => {
+    if (historyIndex < canvasHistory.length - 1) {
+      const canvas = canvasRef.current
+      const ctx = canvas?.getContext('2d')
+      if (!ctx || !canvas) return
+
+      const newIndex = historyIndex + 1
+      const imageData = canvasHistory[newIndex]
+      
+      ctx.putImageData(imageData, 0, 0)
+      setHistoryIndex(newIndex)
+    }
+  }
+
+  const canUndo = () => historyIndex > 0
+  const canRedo = () => historyIndex < canvasHistory.length - 1
+
   // Сохранение canvas как PNG
   const saveAsPNG = () => {
     const canvas = canvasRef.current
@@ -405,6 +478,26 @@ function App() {
   useEffect(() => {
     updateCanvasSize()
   }, [width, height])
+
+  // Добавляем поддержку горячих клавиш
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.ctrlKey || e.metaKey) {
+        if (e.key === 'z' && !e.shiftKey) {
+          e.preventDefault()
+          undo()
+        } else if (e.key === 'y' || (e.key === 'z' && e.shiftKey)) {
+          e.preventDefault()
+          redo()
+        }
+      }
+    }
+
+    window.addEventListener('keydown', handleKeyDown)
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown)
+    }
+  }, [historyIndex, canvasHistory])
 
   // Обработчики изменения размеров
   const handleWidthChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -641,6 +734,24 @@ function App() {
 
         <div className="brush-section">
           <div className="action-buttons">
+            <div className="undo-redo-group">
+              <button 
+                onClick={undo} 
+                className="undo-btn"
+                disabled={!historyIndex}
+                title="Отменить последнее действие (Ctrl+Z)"
+              >
+                ↶ Undo
+              </button>
+              <button 
+                onClick={redo} 
+                className="redo-btn"
+                disabled={!canRedo()}
+                title="Повторить действие (Ctrl+Y)"
+              >
+                ↷ Redo
+              </button>
+            </div>
             <button onClick={clearCanvas} className="clear-btn">
               🗑️ Очистить
             </button>

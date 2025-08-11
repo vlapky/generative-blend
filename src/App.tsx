@@ -32,12 +32,12 @@ function App() {
 
   // Для отслеживания времени последнего мазка
   const [lastStrokeTime, setLastStrokeTime] = useState(0)
-  
+
   // Состояния для записи видео
   const [isRecording, setIsRecording] = useState(false)
   const [mediaRecorder, setMediaRecorder] = useState<MediaRecorder | null>(null)
   const [_, setRecordedChunks] = useState<Blob[]>([])
-  
+
   // Состояния для undo/redo
   const [canvasHistory, setCanvasHistory] = useState<ImageData[]>([])
   const [historyIndex, setHistoryIndex] = useState(-1)
@@ -293,7 +293,7 @@ function App() {
   const handleMouseDown = (e: React.MouseEvent<HTMLCanvasElement>) => {
     // Сохраняем состояние перед началом рисования
     // saveCanvasState()
-    
+
     setIsDrawing(true)
     const pos = getMousePos(e)
     const canvas = canvasRef.current
@@ -353,7 +353,7 @@ function App() {
       })
 
       const chunks: Blob[] = []
-      
+
       recorder.ondataavailable = (event) => {
         if (event.data.size > 0) {
           chunks.push(event.data)
@@ -410,20 +410,20 @@ function App() {
     if (!ctx || !canvas) return
 
     const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height)
-    
+
     // Удаляем все состояния после текущего индекса (если мы не в конце истории)
     const newHistory = canvasHistory.slice(0, historyIndex + 1)
-    
+
     // Добавляем новое состояние
     newHistory.push(imageData)
-    
+
     // Ограничиваем размер истории
     if (newHistory.length > maxHistorySize) {
       newHistory.shift()
     } else {
       setHistoryIndex(historyIndex + 1)
     }
-    
+
     setCanvasHistory(newHistory)
   }
 
@@ -435,7 +435,7 @@ function App() {
 
       const newIndex = historyIndex - 1
       const imageData = canvasHistory[newIndex]
-      
+
       ctx.putImageData(imageData, 0, 0)
       setHistoryIndex(newIndex)
     }
@@ -449,14 +449,11 @@ function App() {
 
       const newIndex = historyIndex + 1
       const imageData = canvasHistory[newIndex]
-      
+
       ctx.putImageData(imageData, 0, 0)
       setHistoryIndex(newIndex)
     }
   }
-
-  const canUndo = () => historyIndex > 0
-  const canRedo = () => historyIndex < canvasHistory.length - 1
 
   // Сохранение canvas как PNG
   const saveAsPNG = () => {
@@ -735,18 +732,18 @@ function App() {
         <div className="brush-section">
           <div className="action-buttons">
             <div className="undo-redo-group">
-              <button 
-                onClick={undo} 
+              <button
+                onClick={undo}
                 className="undo-btn"
                 disabled={!historyIndex}
                 title="Отменить последнее действие (Ctrl+Z)"
               >
                 ↶ Undo
               </button>
-              <button 
-                onClick={redo} 
+              <button
+                onClick={redo}
                 className="redo-btn"
-                disabled={!canRedo()}
+                disabled={!(historyIndex < canvasHistory.length - 1)}
                 title="Повторить действие (Ctrl+Y)"
               >
                 ↷ Redo
@@ -758,8 +755,8 @@ function App() {
             <button onClick={saveAsPNG} className="save-btn">
               💾 Сохранить PNG
             </button>
-            <button 
-              onClick={toggleRecording} 
+            <button
+              onClick={toggleRecording}
               className={`record-btn ${isRecording ? 'recording' : ''}`}
               title={isRecording ? 'Остановить запись' : 'Начать запись видео'}
             >

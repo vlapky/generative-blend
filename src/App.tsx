@@ -71,8 +71,9 @@ function App() {
       setHistoryIndex(0)
     }
 
-    // Очищаем canvas
-    ctx.clearRect(0, 0, width, height)
+    // Заливаем canvas белым фоном
+    ctx.fillStyle = 'white'
+    ctx.fillRect(0, 0, width, height)
   }
 
 
@@ -335,7 +336,9 @@ function App() {
     const canvas = canvasRef.current
     const ctx = canvas?.getContext('2d')
     if (ctx) {
-      ctx.clearRect(0, 0, width, height)
+      // Заливаем белым фоном вместо прозрачного
+      ctx.fillStyle = 'white'
+      ctx.fillRect(0, 0, width, height)
     }
 
     saveCanvasState()
